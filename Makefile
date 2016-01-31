@@ -1,13 +1,14 @@
-OBJECTS	= sdfield3.o
+BIN	= sdfield4
+OBJECTS	= sdfield4.o
 CXX = clang
 
-CFLAGS += -I/usr/X11R6/include -DGL_GLEXT_PROTOTYPES
-LDFLAGS = -L/usr/X11R6/lib
+CXXFLAGS += -I/usr/X11R6/include -DGL_GLEXT_PROTOTYPES -g
+LDFLAGS = -L/usr/X11R6/lib -g
 LDLIBS  = -lGL -lglut -lm
 
-sdfield3: $(OBJECTS)
+$(BIN): $(OBJECTS)
 
 clean:
-	rm -rf sdfield3 $(OBJECTS)
+	rm -rf $(BIN) $(OBJECTS)
 
 
