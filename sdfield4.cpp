@@ -35,6 +35,22 @@ typedef struct input_s
 static int mousepos[2];
 static input_t input;
 
+enum keyaction_t
+{
+	ka_left,
+	ka_right,
+	ka_up,
+	ka_down,
+	ka_x,
+	ka_y,
+	NUM_KEY_ACTIONS
+};
+
+static bool keyactions[NUM_KEY_ACTIONS];
+
+float objx, objy;
+float movex, movey;
+
 // ==============================================
 // memory allocation
 
@@ -229,7 +245,7 @@ static float Distance(float p[2])
 	for (int i = 0; i < 171; i += 3)
 	{
 		float v0[2], v1[2], v2[2];
-		float s = 0.25f;
+		float s = 1.0f;
 		v0[0] = vertices[i + 0][0] * s;
 		v0[1] = vertices[i + 0][1] * s;
 		v1[0] = vertices[i + 1][0] * s;
@@ -303,8 +319,8 @@ static void DrawCursor()
 	xy[1] = 1.0f - ((float)mousepos[1] / (float)renderheight);
 
 	// convert from identity to model pos
-	xy[0] = -2 + xy[0] * 4;
-	xy[1] = -2 + xy[1] * 4;
+	xy[0] = -6 + xy[0] * 12;
+	xy[1] = -6 + xy[1] * 12;
 
 	fprintf(stdout, "x, y: %2.2f, %2.2f\n", xy[0], xy[1]);
 
@@ -324,32 +340,33 @@ static void DrawCursor()
 	glEnd();
 }
 
-static unsigned char *BuildTextureData()
+static unsigned char *BuildTextureData(int texw, int texh)
 {
-	unsigned char *data = (unsigned char*)malloc(renderwidth * renderheight * 3);
-	for (int y = 0; y < renderheight; y++)
+	unsigned char *data = (unsigned char*)malloc(texw * texh * 4);
+	for (int y = 0; y < texh; y++)
 	{
-		for (int x = 0; x < renderwidth; x++)
+		for (int x = 0; x < texw; x++)
 		{
 			float xy[2];
 
 			// convert mouse position from screen to identity
-			xy[0] = (float)x / (float)renderwidth;
+			xy[0] = (float)x / (float)texw;
 			//xy[1] = 1.0f - ((float)y / (float)renderheight);
-			xy[1] = (float)y / (float)renderheight;
+			xy[1] = (float)y / (float)texh;
 
 			// convert from identity to model pos
-			xy[0] = -2 + xy[0] * 4;
-			xy[1] = -2 + xy[1] * 4;
+			xy[0] = -6 + xy[0] * 12;
+			xy[1] = -6 + xy[1] * 12;
 
 			float d = Distance(xy);
 			d = max(-1.0f, min(d, 1.0f));
 			d *= 50;
 			
-			unsigned char *t = data + (y * renderwidth * 3) + (x * 3);
+			unsigned char *t = data + (y * texw * 4) + (x * 4);
 			*t++ = max(0, d) + 50;
 			*t++ = 0;
 			*t++ = max(0, -d) + 50;
+			*t++ = 255;
 		}
 	}
 
@@ -366,17 +383,25 @@ static void DrawField()
 		texw = renderwidth;
 		texh = renderheight;
 
+		if (texture)
+		{
+			glDeleteTextures(1, &texture);
+			texture = 0;
+		}
 		if (!texture)
 			glGenTextures(1, &texture);
 
-		printf("rebuilding texture data %i, %i\n", renderwidth, renderheight);
-		unsigned char *data = BuildTextureData();
+		printf("rebuilding texture data %i, %i\n", texw, texh);
 		glBindTexture(GL_TEXTURE_2D, texture);
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, texw, texh, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, texw, texh, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+
+		glBindTexture(GL_TEXTURE_2D, texture);
+		unsigned char *data = BuildTextureData(texw, texh);
+		glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, texw, texh, GL_RGBA, GL_UNSIGNED_BYTE, data);
 		free(data);
 	}
 
@@ -411,11 +436,41 @@ static void DrawField()
 
 static void DrawTriangles()
 {
+	glColor3f(1, 1, 1);
+	glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+	glEnableClientState(GL_VERTEX_ARRAY);
+	glVertexPointer(2, GL_FLOAT, 2 * sizeof(float), (void*)vertices);
+	glDrawArrays(GL_TRIANGLES, 0, 171);
+	glDisableClientState(GL_VERTEX_ARRAY);
+	glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+}
+
+static void DrawObject(float x, float y)
+{
+	float xx = x - 0.2f;
+	float yy = y - 0.2f;
+	float s = 0.1f;
+
+	glColor3f(1, 0, 1);
+
+	glBegin(GL_TRIANGLE_STRIP);
+	glVertex2f(x - s, y - s);
+	glVertex2f(x + s, y - s);
+	glVertex2f(x - s, y + s);
+	glVertex2f(x + s, y + s);
+	glEnd();
+}
+
+static void DrawPlayer()
+{
+	DrawObject(objx, objy);
 }
 
 static void Draw()
 {
 	DrawField();
+
+	DrawTriangles();
 
 	DrawCursor();
 }
@@ -458,6 +513,35 @@ static void Thing_Frame()
 	glEnd();
 }
 
+static void Player_Frame()
+{
+	float s = 0.1f;
+
+	movex = 0;
+	if (keyactions[ka_left])
+		movex -= s;
+	if (keyactions[ka_right])
+		movex += s;
+
+	movey = 0;
+	if (keyactions[ka_down])
+		movey -= s;
+	if (keyactions[ka_up])
+		movey += s;
+
+	float nextx, nexty;
+	nextx = objx + movex;
+	nexty = objy + movey;
+
+	float p[2] = { nextx, nexty };
+	float d = Distance(p);
+	if (d > 0.0f)
+	{
+		objx += movex;
+		objy += movey;
+	}
+}
+
 // glut functions
 static void DisplayFunc()
 {
@@ -466,19 +550,10 @@ static void DisplayFunc()
 	//glEnable(GL_DEPTH_TEST);
 
 	Draw();
-	Thing_Frame();
+
+	DrawPlayer();
 
 	glutSwapBuffers();
-}
-
-static void KeyboardDownFunc(unsigned char key, int x, int y)
-{
-	input.keys[key] = true;
-}
-
-static void KeyboardUpFunc(unsigned char key, int x, int y)
-{
-	input.keys[key] = false;
 }
 
 static void ReshapeFunc(int w, int h)
@@ -488,7 +563,7 @@ static void ReshapeFunc(int w, int h)
 
 	glMatrixMode(GL_PROJECTION);
 	glLoadIdentity();
-	glOrtho(-2, 2, -2, 2, -1, 1);
+	glOrtho(-6, 6, -6, 6, -1, 1);
 
 	glViewport(0, 0, renderwidth, renderheight);
 }
@@ -507,12 +582,69 @@ static void MouseMoveFunc(int x, int y)
 	mousepos[1] = y;
 }
 
+static void KeyDownFunc(unsigned char key, int x, int y)
+{
+	if (key == 'a')
+		keyactions[ka_left] = true;
+	if (key == 'd')
+		keyactions[ka_right] = true;
+	if (key == 'w')
+		keyactions[ka_up] = true;
+	if (key == 's')
+		keyactions[ka_down] = true;
+	if (key == 'x')
+		keyactions[ka_x] = true;
+	if (key == 'z')
+		keyactions[ka_y] = true;
+}
+static void KeyUpFunc(unsigned char key, int x, int y)
+{
+	if (key == 'a')
+		keyactions[ka_left] = false;
+	if (key == 'd')
+		keyactions[ka_right] = false;
+	if (key == 'w')
+		keyactions[ka_up] = false;
+	if (key == 's')
+		keyactions[ka_down] = false;
+	if (key == 'x')
+		keyactions[ka_x] = false;
+	if (key == 'z')
+		keyactions[ka_y] = false;
+}
+static void SpecialDownFunc(int key, int x, int y)
+{
+	if (key == GLUT_KEY_LEFT)
+		keyactions[ka_left] = true;
+	if (key == GLUT_KEY_RIGHT)
+		keyactions[ka_right] = true;
+	if (key == GLUT_KEY_UP)
+		keyactions[ka_up] = true;
+	if (key == GLUT_KEY_DOWN)
+		keyactions[ka_down] = true;
+}
+static void SpecialUpFunc(int key, int x, int y)
+{
+	if (key == GLUT_KEY_LEFT)
+		keyactions[ka_left] = false;
+	if (key == GLUT_KEY_RIGHT)
+		keyactions[ka_right] = false;
+	if (key == GLUT_KEY_UP)
+		keyactions[ka_up] = false;
+	if (key == GLUT_KEY_DOWN)
+		keyactions[ka_down] = false;
+}
+
 // ticked at 60hz
 // split into Frame()
 static void TimerFunc(int value)
 {
 	// standard mouse input
 	ProcessInput();
+
+	Thing_Frame();
+
+	Player_Frame();
 
 	// kick a display refresh
 	glutPostRedisplay();
@@ -533,8 +665,10 @@ int main(int argc, char *argv[])
 
 	glutReshapeFunc(ReshapeFunc);
 	glutDisplayFunc(DisplayFunc);
-	glutKeyboardFunc(KeyboardDownFunc);
-	glutKeyboardUpFunc(KeyboardUpFunc);
+	glutKeyboardFunc(KeyDownFunc);
+	glutKeyboardUpFunc(KeyUpFunc);
+	glutSpecialFunc(SpecialDownFunc);
+	glutSpecialUpFunc(SpecialUpFunc);
 	glutMouseFunc(MouseFunc);
 	glutMotionFunc(MouseMoveFunc);
 	glutPassiveMotionFunc(MouseMoveFunc);
