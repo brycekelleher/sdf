@@ -1,5 +1,5 @@
-BIN	= sdfield4
-OBJECTS	= sdfield4.o
+BIN	= sdfield5
+OBJECTS	= sdfield5.o
 CXX = clang
 
 CXXFLAGS += -I/usr/X11R6/include -DGL_GLEXT_PROTOTYPES
