@@ -537,7 +537,7 @@ static void Player_Frame()
 	{
 		float p[2] = { nextx, nexty };
 		float d = Distance(p);
-		if (d > 0.1f)
+		if (d > 0.2f)
 		{
 			objx += movex;
 			objy += movey;
@@ -553,8 +553,17 @@ static void Player_Frame()
 
 			float e[2] = { nextx - objx, nexty - objy };
 			float dot = (t[0] * e[0]) + (t[1] * e[1]);
-			objx += t[0] * dot;
-			objy += t[1] * dot;
+			nextx = objx + t[0] * dot;
+			nexty = objy + t[1] * dot;
+
+			// check again that the slide move is valid
+			float p2[2] = { nextx, nexty };
+			d = Distance(p2);
+			if (d > 0.2f)
+			{
+				objx += t[0] * dot;
+				objy += t[1] * dot;
+			}
 		}
 	}
 

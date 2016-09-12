@@ -1,8 +1,8 @@
-BIN	= sdfield5
-OBJECTS	= sdfield5.o
+BIN	= sdfield6
+OBJECTS	= sdfield6.o
 CXX = clang
 
-CXXFLAGS += -I/usr/X11R6/include -DGL_GLEXT_PROTOTYPES
+CXXFLAGS += -I/usr/X11R6/include -DGL_GLEXT_PROTOTYPES -Wall
 LDFLAGS = -L/usr/X11R6/lib
 LDLIBS  = -lGL -lglut -lm
 
